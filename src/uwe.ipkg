@@ -1,0 +1,7 @@
+package uwe
+
+main = Main
+pkgs = contrib
+modules = Main, Package, Util
+opts = "--sourcepath ../test_env/packages/ -i ../test_env/packages/"
+executable = "main"
