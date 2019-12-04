@@ -10,10 +10,11 @@ import Data.Vect
 
 data OptLevel = O1 | O2 | O3
 
+-- Currrent Build Function
 buildHelloWorld : OptLevel -> BuildOutputs
-buildHelloWorld ol = do
-    system "gcc -o main ~/code/hello_world/main.c"
-    pure [(BinFile, "main")]
+buildHelloWorld _ = do
+    system "gcc -o hello_world ~/code/hello_world/main.c"
+    pure [(BinFile, "hello_world")]
 
-helloWorld : Package
-helloWorld = MkPackage [] buildHelloWorld
+HelloWorld : Package
+HelloWorld = MkPackage "hello-world" [] O1 buildHelloWorld

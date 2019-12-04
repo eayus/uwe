@@ -26,24 +26,36 @@ BuildOutputs = IO (List OutFile)
 
 data Package : Type where
     MkPackage : {options : Type}
+             -> (name : String)
              -> (deps : Vect n Package)
+             -> (defaultOpts : options)
              -> (build : options -> BuildOutputs)
              -> Package
 
 
 optionsFor : Package -> Type
-optionsFor (MkPackage {options} _ _ ) = options
+optionsFor (MkPackage {options} _ _ _ _ ) = options
 
 mutual
     depsFor : Package -> Type
-    depsFor (MkPackage deps _) = HVect (map PackageInstance deps)
+    depsFor (MkPackage _ deps _ _) = HVect (map PackageInstance deps)
 
     data PackageInstance : Package -> Type where
         MkPackageInstance : {pkg : Package} -> optionsFor pkg -> depsFor pkg -> PackageInstance pkg
 
 
+defaultPackageInstance : (pkg : Package) -> PackageInstance pkg
+defaultPackageInstance (MkPackage _ deps defaultOpts _) = MkPackageInstance defaultOpts (defaultDeps deps)
+    where
+        defaultDeps : (ds : Vect n Package) -> HVect (map PackageInstance ds)
+        defaultDeps [] = []
+        defaultDeps (x :: xs) = (defaultPackageInstance x) :: defaultDeps xs
+
 Environment : Type
 Environment = List (pkg : Package ** PackageInstance pkg)
+
+PackageCollection : Type
+PackageCollection = List Package
 
 
 {--withEnv : Environment -> IO a -> IO a
@@ -58,16 +70,15 @@ hashInputs _ _ = show $ (hashDeps--}
 
 -- returns installed location
 installPkg : PackageInstance pkg -> IO FilePath
-installPkg (MkPackageInstance {pkg} opts deps) = let (MkPackage _ build) = pkg in do
+installPkg (MkPackageInstance {pkg} opts deps) = let (MkPackage _ _ _ build) = pkg in do
     (buildFolder, outFiles) <- inTmpDir $ build opts
     folderName <- show . hash <$> time
 
-    let outdir = "~/ellis/code/uwe/test_env/store/" ++ folderName ++ "/"
+    let outdir = "~/code/uwe/test_env/store/" ++ folderName ++ "/"
 
-    createDir outdir
-    changeDir outdir
-    createDir "bin"
-    createDir "lib"
+    system $ "mkdir " ++ outdir
+    system $ "mkdir " ++ outdir ++ "bin"
+    system $ "mkdir " ++ outdir ++ "lib"
 
     let f = \tup => do
         let type = fst tup
@@ -89,5 +100,6 @@ withEnv e = do
     let libPath = pack $ map (\c => if c == ' ' then ':' else c) $ unpack $ unwords $ map (++ "lib/") folders
     let pathExport = "export PATH=" ++ path
     let libExport = "export LD_LIBRARY_PATH=" ++ libPath
-    pure $ pathExport ++ ";" ++ libExport
+    let command = "env PATH=\"" ++ path ++ "\" LD_LIBRARY_PATH=\"" ++ libPath ++ "\" /bin/bash"
+    pure command
 
